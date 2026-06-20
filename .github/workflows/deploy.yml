@@ -3,7 +3,7 @@ name: Deploy .NET Core to Hostinger VPS
 on:
   push:
     branches:
-      - main        # Quando commitar na main, vai para Produção
+      - main        # Quando commitar na main, vai para Produçãog
       - develop     # Quando commitar na develop, vai para Homologação
   workflow_dispatch: # PERMITE DISPARAR MANUALMENTE PELA ABA ACTIONS PARA TESTAR
 
