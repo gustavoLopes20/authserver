@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <TimeStampOfAssociatedLegacyPublishXmlFile />
+    <_PublishTargetUrl>C:\Users\gusta\Documents\Desenvolvimento\RentaInvest\authserver\bin\Release\net8.0\publish\</_PublishTargetUrl>
+    <History>True|2025-01-14T01:06:16.9263903Z||;True|2025-01-05T10:00:33.2503083-03:00||;True|2025-01-05T01:01:14.0120439-03:00||;True|2025-01-05T00:52:41.2410737-03:00||;True|2025-01-04T23:50:01.8824470-03:00||;True|2025-01-04T23:36:09.0102081-03:00||;True|2025-01-04T23:29:06.9926175-03:00||;True|2025-01-04T23:17:27.4452732-03:00||;True|2025-01-04T23:14:44.5049927-03:00||;True|2025-01-04T22:40:41.3948389-03:00||;True|2025-01-04T22:19:18.5550883-03:00||;True|2025-01-02T12:27:20.6059008-03:00||;True|2025-01-02T12:04:51.7743738-03:00||;True|2025-01-02T11:43:17.8209371-03:00||;True|2025-01-02T11:42:33.6607526-03:00||;True|2025-01-02T11:42:22.7742526-03:00||;True|2025-01-02T09:37:11.6577938-03:00||;True|2024-10-07T19:07:16.8825339-03:00||;True|2024-10-05T15:01:59.9218582-03:00||;True|2024-10-03T04:15:09.5286192-03:00||;True|2024-10-03T03:17:42.5285521-03:00||;True|2024-10-03T02:20:39.4656267-03:00||;True|2024-10-03T02:15:32.4722414-03:00||;True|2024-10-03T02:08:14.9497792-03:00||;True|2024-10-03T01:25:11.1743647-03:00||;True|2024-10-03T00:42:28.7097002-03:00||;True|2024-10-03T00:28:33.3544756-03:00||;True|2024-10-02T23:28:23.2543607-03:00||;True|2024-09-30T15:31:37.8795073-03:00||;True|2024-09-30T15:25:04.9332958-03:00||;True|2024-09-30T15:10:50.3209075-03:00||;True|2024-09-30T15:02:20.5907892-03:00||;True|2024-09-30T14:44:11.7335107-03:00||;True|2024-09-30T14:32:06.3274370-03:00||;True|2024-09-30T14:31:13.2727077-03:00||;True|2024-09-29T19:41:07.1133275-03:00||;True|2024-09-29T19:34:57.8737103-03:00||;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+  <ItemGroup>
+    <DestinationConnectionStrings Include="DefaultConnection">
+      <Value>Server=191.101.71.9%3bDataBase=db_identityServer_prd%3bUid=usrIdentityServer%3bPwd=5Z7A%24c#y%249Dg%3bpooling = false%3b</Value>
+    </DestinationConnectionStrings>
+  </ItemGroup>
+</Project>
