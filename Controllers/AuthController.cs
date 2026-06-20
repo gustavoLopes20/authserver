@@ -249,7 +249,7 @@ namespace AuthServer.Controllers
                 await _emailService.SendEmailAsync(user.Email, "Seu código de acesso RentaInvest", htmlBody);
 
                 // Retornando o código no JSON temporariamente apenas para você testar no Postman/Swagger:
-                return Ok(new { success = true, message = "Código enviado com sucesso.", dev_code = mfaCode });
+                return Ok(new { success = true, message = "Código enviado com sucesso." });
             }
             catch (Exception ex)
             {

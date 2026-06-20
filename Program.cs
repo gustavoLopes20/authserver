@@ -193,7 +193,7 @@ builder.Services.AddAuthentication(options =>
 if (builder.Environment.IsProduction())
 {
     builder.Services.AddDataProtection()
-        .PersistKeysToFileSystem(new DirectoryInfo(@"/var/www/authServer2/keys"))
+        .PersistKeysToFileSystem(new DirectoryInfo(@"/var/www/keys"))
     .SetApplicationName("RentaInvest");
 }
 else
