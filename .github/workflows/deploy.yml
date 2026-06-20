@@ -51,7 +51,7 @@ jobs:
         rsync -avz --delete \
           ./publish/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/$TARGET_DIR/
 
-    # 8. Ajusta permissões da wwwroot e Reinicia o serviço na VPS
+    # 8. Reinicia o serviço na VPS
     - name: Reiniciar Serviço .NET
       run: |
         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} TARGET_DIR="${{ env.TARGET_DIR }}" 'bash -s' << 'EOF'
