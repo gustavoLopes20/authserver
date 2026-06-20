@@ -24,7 +24,7 @@ jobs:
 
     # 3. Publica a aplicação
     - name: Publish Application
-      run: dotnet publish backend/backend.sln -c Release -o ./publish
+      run: dotnet publish AuthServer.sln -c Release -o ./publish
 
     # 4. Define se vai para a pasta de Homologação ou Produção (Bash limpo)
     - name: Definir Ambiente de Destino
