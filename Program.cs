@@ -208,6 +208,15 @@ builder.Services.AddScoped<DataSeeder>();
 var app = builder.Build();
 
 
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedOptions.KnownProxies.Clear();  // Remove a trava de IP estrita do .NET
+forwardedOptions.KnownNetworks.Clear(); // Remove a trava de subrede do .NET
+
+app.UseForwardedHeaders(forwardedOptions);
+
 // Seed roles e usu rios
 using (var scope = app.Services.CreateScope())
 {
@@ -235,10 +244,6 @@ else
 }
 
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
 
 app.UseCors("AllowVueJsApp");
 
