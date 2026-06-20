@@ -1,0 +1,62 @@
+name: Deploy .NET Core to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - main        # Quando commitar na main, vai para Produção
+      - develop     # Quando commitar na develop, vai para Homologação
+  workflow_dispatch: # PERMITE DISPARAR MANUALMENTE PELA ABA ACTIONS PARA TESTAR
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Baixa o código do GitHub para a máquina do Actions
+    - name: Checkout Código
+      uses: actions/checkout@v4
+
+    # 2. Instala o SDK do .NET na máquina do Actions
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0'
+
+    # 3. Publica a aplicação
+    - name: Publish Application
+      run: dotnet publish backend/backend.sln -c Release -o ./publish
+
+    # 4. Define se vai para a pasta de Homologação ou Produção (Bash limpo)
+    - name: Definir Ambiente de Destino
+      run: |
+        if [ "${{ github.ref_name }}" = "main" ]; then
+          echo "TARGET_DIR=authServer2" >> $GITHUB_ENV
+        fi
+
+    # 5. Configura a chave SSH para conectar na Hostinger
+    - name: Configurar Chave SSH
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_KEY }}
+
+    # 6. Evita que o GitHub barre a conexão com a VPS
+    - name: Adicionar Host aos Known Hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+    # 7. Copia APENAS os arquivos da pasta 'publish' para a pasta certa na VPS
+    - name: Enviar arquivos via Rsync
+      run: |
+        rsync -avz --delete \
+          ./publish/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/$TARGET_DIR/
+
+    # 8. Ajusta permissões da wwwroot e Reinicia o serviço na VPS
+    - name: Reiniciar Serviço .NET
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} TARGET_DIR="${{ env.TARGET_DIR }}" 'bash -s' << 'EOF'
+          
+          # Reinicia o serviço do .NET
+          sudo systemctl restart ${{ env.TARGET_DIR }}.service
+          echo "Deploy e reinicialização concluídos com sucesso!"
+        EOF

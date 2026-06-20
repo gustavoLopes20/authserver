@@ -102,7 +102,6 @@ builder.Services.AddOpenIddict()
                .AddDevelopmentSigningCertificate()
                 .Configure(a => a.Claims.Add(ClaimTypes.Role)); // Add a development signing certificate for signing
 
-      
 
         if (builder.Environment.IsDevelopment())
         {
