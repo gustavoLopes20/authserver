@@ -128,7 +128,7 @@ namespace AuthServer.Controllers
             }
         }
 
-        [HttpPost("/connect/token")]
+        [HttpPost("~/connect/token")]
         public async Task<IActionResult> Exchange()
         {
             var request = HttpContext.GetOpenIddictServerRequest() ??

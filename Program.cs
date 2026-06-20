@@ -207,6 +207,7 @@ builder.Services.AddScoped<DataSeeder>();
 
 var app = builder.Build();
 
+app.UsePathBase("/identity");
 
 var forwardedOptions = new ForwardedHeadersOptions
 {
