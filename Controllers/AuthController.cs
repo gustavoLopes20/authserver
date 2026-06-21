@@ -3,6 +3,7 @@ using AuthServer.Models;
 using AuthServer.Services.Helpers;
 using AuthServer.Services.Interfaces;
 using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Abstractions;
@@ -197,6 +198,12 @@ namespace AuthServer.Controllers
                 identity.SetAccessTokenLifetime(TimeSpan.FromHours(48));
                 principal.SetAccessTokenLifetime(TimeSpan.FromHours(48));
 
+                // 1. Criar as propriedades de autenticação
+                var properties = new AuthenticationProperties();
+                properties.SetParameter("user_id", user.Id);
+                properties.SetParameter("user_email", user.Email);
+                properties.SetParameter("user_roles", string.Join(",", roles));
+
                 principal.SetDestinations(static claim => claim.Type switch
                 {
                     OpenIddictConstants.Claims.Name or OpenIddictConstants.Claims.Role
@@ -213,9 +220,9 @@ namespace AuthServer.Controllers
                     OpenIddictConstants.Scopes.Roles,
                 });
 
-                principal.SetResources("selfInvestApp-idd");
+                principal.SetResources("rentainvestApp-idd");
 
-                return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+                return SignIn(principal, properties,OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
             }
 
             return BadRequest(new OpenIddictResponse

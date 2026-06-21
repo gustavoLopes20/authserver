@@ -22,6 +22,7 @@ using Serilog.Events;
 using System;
 using System.IO;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +67,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddHttpContextAccessor();
 
+bool isDev = builder.Environment.IsDevelopment();
+
 builder.Services.Configure<IdentityOptions>(options =>
 {
     options.ClaimsIdentity.UserNameClaimType = OpenIddictConstants.Claims.Name;
@@ -73,18 +76,25 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.ClaimsIdentity.RoleClaimType = OpenIddictConstants.Claims.Role;
 });
 
+if (builder.Environment.IsDevelopment())
+{
+    // Habilita logs detalhados de tokens no console em ambiente de desenvolvimento
+    Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
+}
+
 builder.Services.AddOpenIddict()
     .AddCore(options =>
     {
         options.UseEntityFrameworkCore()
                .UseDbContext<ApplicationDbContext>()
-               .ReplaceDefaultEntities<Application, Authorization, Scope, Token, string>(); 
+               .ReplaceDefaultEntities<Application, Authorization, Scope, Token, string>();
     })
     .AddServer(options =>
     {
         options.SetIssuer(new Uri(Configuration["OpenIddict:Server:Issuer"]));
 
-        //options.SetIssuer(Configuration["OpenIddict:Server:Issuer"]);
+        // Força o OpenIddict a emitir um JWT normal (sem JWE)
+        options.DisableAccessTokenEncryption();
 
         options.SetAuthorizationEndpointUris(Configuration["OpenIddict:Server:AuthorizationEndpoint"])
                .SetTokenEndpointUris(Configuration["OpenIddict:Server:TokenEndpoint"])
@@ -94,12 +104,12 @@ builder.Services.AddOpenIddict()
 
         options.SetJsonWebKeySetEndpointUris(Configuration["OpenIddict:Server:JwksEndpoint"]);
 
-        // Emitir tokens JWT assinados
-        options.AddEphemeralSigningKey(); // Use um certificado para produo
-        options.AddDevelopmentEncryptionCertificate() // Add a development encryption certificate for encryption
-               .AddDevelopmentSigningCertificate()
-                .Configure(a => a.Claims.Add(ClaimTypes.Role)); // Add a development signing certificate for signing
+        options.AddDevelopmentEncryptionCertificate()
+               //.AddDevelopmentSigningCertificate()
+               .Configure(a => a.Claims.Add(ClaimTypes.Role));
 
+        options.AddEphemeralSigningKey()
+       .AddEphemeralEncryptionKey();
 
         if (builder.Environment.IsDevelopment())
         {
@@ -107,7 +117,6 @@ builder.Services.AddOpenIddict()
                 .EnableTokenEndpointPassthrough()
                 .EnableAuthorizationEndpointPassthrough()
                 .DisableTransportSecurityRequirement();
-
         }
         else
         {
@@ -116,21 +125,22 @@ builder.Services.AddOpenIddict()
              .EnableAuthorizationEndpointPassthrough();
         }
 
-        var secretKey = Configuration["Secrets:Admin_secret"]; // Chave secreta armazenada no arquivo de configura��o
-        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        // Cria uma chave assimétrica RSA em memória para o ciclo de vida da aplicação
+        var asymmetricRsaKey = new RsaSecurityKey(RSA.Create(2048))
+        {
+            KeyId = "rentainvest-asymmetric-signing-key"
+        };
 
-        options.AddSigningKey(signingKey); // Adicionando a chave de assinatura
+        options.AddSigningKey(asymmetricRsaKey);
 
 
-        options.AllowClientCredentialsFlow(); // Suporta autenticao de clientes
-        options.AllowPasswordFlow(); // Suporta autentica por senha
+        options.AllowClientCredentialsFlow();
+        options.AllowPasswordFlow();
         options.AllowCustomFlow("email_code");
 
-        options.AddEphemeralSigningKey();
-
-        options.SetAccessTokenLifetime(TimeSpan.FromHours(48));
-        options.SetIdentityTokenLifetime(TimeSpan.FromHours(48));
-        options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
+        //options.SetAccessTokenLifetime(TimeSpan.FromHours(48));
+        //options.SetIdentityTokenLifetime(TimeSpan.FromHours(48));
+        //options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
 
         options.AllowRefreshTokenFlow();
 
@@ -142,26 +152,22 @@ builder.Services.AddOpenIddict()
         builder.UseInlineHandler(context =>
         {
             var httpContext = context.Transaction.GetHttpRequest()?.HttpContext;
+            if (context == null || httpContext == null) return default;
 
-            if (context == null)
-            {
-                return default;
-            }
-
-            // Verifica se a resposta foi gerada com sucesso e se contém o AccessToken
             if (string.IsNullOrEmpty(context.Response.Error) && !string.IsNullOrEmpty(context.Response.AccessToken))
             {
                 httpContext.Response.Cookies.Append("rentainvest_token", context.Response.AccessToken, new CookieOptions
                 {
-                    HttpOnly = true,   // Protege contra XSS (VueJS não lê)
-                    Secure = true,     // Apenas HTTPS
-                    SameSite = SameSiteMode.Lax, // Protege contra CSRF
-                    Expires = DateTimeOffset.UtcNow.AddHours(48) // Alinhado com as 48h do token
+                    HttpOnly = true,
+                    Secure = !isDev,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddHours(48)
                 });
+
+                context.Response.AccessToken = null;
             }
             return default;
         }));
-
     })
     .AddValidation(options =>
     {
@@ -169,6 +175,108 @@ builder.Services.AddOpenIddict()
         options.UseAspNetCore();
         options.SetClientAssertionLifetime(TimeSpan.FromHours(48));
     });
+
+//builder.Services.AddOpenIddict()
+//    .AddCore(options =>
+//    {
+//        options.UseEntityFrameworkCore()
+//               .UseDbContext<ApplicationDbContext>()
+//               .ReplaceDefaultEntities<Application, Authorization, Scope, Token, string>(); 
+//    })
+//    .AddServer(options =>
+//    {
+//        options.SetIssuer(new Uri(Configuration["OpenIddict:Server:Issuer"]));
+
+//        //options.SetIssuer(Configuration["OpenIddict:Server:Issuer"]);
+
+//        options.SetAuthorizationEndpointUris(Configuration["OpenIddict:Server:AuthorizationEndpoint"])
+//               .SetTokenEndpointUris(Configuration["OpenIddict:Server:TokenEndpoint"])
+//               .SetIntrospectionEndpointUris(Configuration["OpenIddict:Server:IntrospectionEndpoint"])
+//               .SetRevocationEndpointUris(Configuration["OpenIddict:Server:RevocationEndpoint"])
+//               .SetUserInfoEndpointUris(Configuration["OpenIddict:Server:UserInfoEndpoint"]);
+
+//        options.SetJsonWebKeySetEndpointUris(Configuration["OpenIddict:Server:JwksEndpoint"]);
+
+//        // Emitir tokens JWT assinados
+//        options.AddEphemeralSigningKey(); // Use um certificado para produo
+//        options.AddDevelopmentEncryptionCertificate() // Add a development encryption certificate for encryption
+//               .AddDevelopmentSigningCertificate()
+//                .Configure(a => a.Claims.Add(ClaimTypes.Role)); // Add a development signing certificate for signing
+
+
+//        if (builder.Environment.IsDevelopment())
+//        {
+//            options.UseAspNetCore()
+//                .EnableTokenEndpointPassthrough()
+//                .EnableAuthorizationEndpointPassthrough()
+//                .DisableTransportSecurityRequirement();
+
+//        }
+//        else
+//        {
+//            options.UseAspNetCore()
+//             .EnableTokenEndpointPassthrough()
+//             .EnableAuthorizationEndpointPassthrough();
+//        }
+
+//        var secretKey = Configuration["Secrets:Admin_secret"]; // Chave secreta armazenada no arquivo de configura��o
+//        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
+//        options.AddSigningKey(signingKey); // Adicionando a chave de assinatura
+
+
+//        options.AllowClientCredentialsFlow(); // Suporta autenticao de clientes
+//        options.AllowPasswordFlow(); // Suporta autentica por senha
+//        options.AllowCustomFlow("email_code");
+
+//        options.AddEphemeralSigningKey();
+
+//        options.SetAccessTokenLifetime(TimeSpan.FromHours(48));
+//        options.SetIdentityTokenLifetime(TimeSpan.FromHours(48));
+//        options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
+
+//        options.AllowRefreshTokenFlow();
+
+//        options.RegisterScopes(OpenIddictConstants.Permissions.Scopes.Email,
+//                       OpenIddictConstants.Permissions.Scopes.Profile,
+//                       OpenIddictConstants.Permissions.Scopes.Roles);
+
+//        options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ApplyTokenResponseContext>(builder =>
+//        builder.UseInlineHandler(context =>
+//        {
+//            var httpContext = context.Transaction.GetHttpRequest()?.HttpContext;
+
+//            if (context == null)
+//            {
+//                return default;
+//            }
+
+//            // Verifica se a resposta foi gerada com sucesso e se contém o AccessToken
+//            if (string.IsNullOrEmpty(context.Response.Error) && !string.IsNullOrEmpty(context.Response.AccessToken))
+//            {
+//                httpContext.Response.Cookies.Append("rentainvest_token", context.Response.AccessToken, new CookieOptions
+//                {
+//                    HttpOnly = true,   // Protege contra XSS (VueJS não lê)
+//                    Secure = !isDev,     // Apenas HTTPS
+//                    SameSite = SameSiteMode.Lax, // Protege contra CSRF
+//                    Expires = DateTimeOffset.UtcNow.AddHours(48) // Alinhado com as 48h do token
+//                });
+
+
+//                // 3. SEGURANÇA EXTRA: Apaga o access_token do corpo do JSON
+//                // Assim, mesmo se sua app sofrer um ataque XSS, o hacker não consegue ler o token pelo payload do Axios
+//                context.Response.AccessToken = null;
+//            }
+//            return default;
+//        }));
+
+//    })
+//    .AddValidation(options =>
+//    {
+//        options.UseLocalServer();
+//        options.UseAspNetCore();
+//        options.SetClientAssertionLifetime(TimeSpan.FromHours(48));
+//    });
 
 
 // PolicyCors
@@ -182,8 +290,8 @@ builder.Services.AddCors(options =>
             builder.WithOrigins(withOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .AllowCredentials()
-                .WithMethods("GET", "POST");
+                .WithMethods("GET", "POST")
+                                .AllowCredentials();
         });
 });
 
