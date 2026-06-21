@@ -5,6 +5,7 @@ using MimeKit.Text;
 using System.Threading.Tasks;
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using System.Collections.Generic;
 
 namespace AuthServer.Services;
 
@@ -12,7 +13,7 @@ public class EmailService(IConfiguration configuration) : IEmailService
 {
     private readonly IConfiguration _configuration = configuration;
 
-    public async Task SendEmailAsync(string toEmail, string subject, string htmlContent)
+    public async Task SendEmailAsync(List<string> toEmail, string subject, string htmlContent)
     {
         var from = _configuration["OpenIddict:Smtp:From"];
         var host = _configuration["OpenIddict:Smtp:Host"];
@@ -22,7 +23,12 @@ public class EmailService(IConfiguration configuration) : IEmailService
 
         var email = new MimeMessage();
         email.From.Add(MailboxAddress.Parse(from));
-        email.To.Add(MailboxAddress.Parse(toEmail));
+        foreach (var emailAddr in toEmail)
+        {
+           if(!string.IsNullOrEmpty(emailAddr))
+               email.To.Add(MailboxAddress.Parse(emailAddr));
+           
+        }
         email.Subject = subject;
         email.Body = new TextPart(TextFormat.Html) { Text = htmlContent };
 

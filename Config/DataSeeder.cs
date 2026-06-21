@@ -62,6 +62,27 @@ namespace AuthServer.Config
                 });
             }
 
+            if (await _applicationManager.FindByClientIdAsync("internationalRentainvestApp-idd") == null)
+            {
+                await _applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
+                {
+                    ClientId = "internationalRentainvestApp-idd",
+                    ClientSecret = "ecd786ce976ef9d9be1a82618c26a49341469f6aab16bd232d8a9499f71baaf4",
+                    DisplayName = "International Rentainvest",
+                    Permissions =
+                    {
+                        OpenIddictConstants.Permissions.Endpoints.Token,
+                        OpenIddictConstants.Permissions.Endpoints.Authorization,
+                        OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                        OpenIddictConstants.Permissions.GrantTypes.Password,
+                        OpenIddictConstants.Scopes.OpenId, // Escopo OpenID (literal)
+                        OpenIddictConstants.Permissions.Scopes.Profile,
+                        OpenIddictConstants.Permissions.Scopes.Email,
+                        OpenIddictConstants.Permissions.Scopes.Roles,
+                    }
+                });
+            }
+
             if (await _applicationManager.FindByClientIdAsync("clientPainel_app") == null)
             {
                 await _applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
@@ -101,7 +122,7 @@ namespace AuthServer.Config
             }
 
             // Criar usuário Admin
-            await SeedAdminUserAsync("gustavo@outlook.com", "u509%(lCl<l2!",  "Admin");
+            await SeedAdminUserAsync("gustavol17@outlook.com", "u509%(lCl<l2!",  "Admin");
             await SeedAdminUserAsync("luizpa30@gmail.com", "LV8@=u[sQ3$4", "Admin");
             await SeedAdminUserAsync("selfinvest@rentainvest.com.br", "LV8@=u[sQ3$4", "SelfInvest");
         }

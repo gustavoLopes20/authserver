@@ -9,6 +9,9 @@ namespace AuthServer.Models
         public string Role { get; set; } // 'Admin' ou 'Cliente'
 
         [MaxLength(12)]
-        public string ExternalId { get; set; } 
+        public string ExternalId { get; set; }
+
+        [MaxLength(64)]
+        public string EmailAlternativo { get; set; }
     }
 }

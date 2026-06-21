@@ -6,6 +6,7 @@
         public string Password { get; set; }
         public string Role { get; set; } = "Client";
         public string ExternalReferenceId { get; set; }
+        public string EmailAlternativo { get; set; }
     }
 
     public class RegisterResponseDto

@@ -4,6 +4,8 @@ using AuthServer.Services.Helpers;
 using AuthServer.Services.Interfaces;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Abstractions;
@@ -28,6 +30,7 @@ namespace AuthServer.Controllers
         private readonly IEmailService _emailService = emailService;
 
         [HttpGet("list-usrs")]
+        [Authorize]
         public  List<ApplicationUser> GetUrs([FromQuery] string id)
         {
             try
@@ -56,6 +59,19 @@ namespace AuthServer.Controllers
             }
         }
 
+        [HttpPost("logout")]
+        [Authorize] 
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+
+            return Ok(new
+            {
+                sucesso = true,
+                mensagem = "Logout realizado com sucesso."
+            });
+        }
+
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
@@ -72,7 +88,8 @@ namespace AuthServer.Controllers
                     UserName = model.Email.Trim(), 
                     Email = model.Email.Trim(), 
                     Role = model.Role.Trim(), 
-                    ExternalId = model.ExternalReferenceId.Trim()
+                    ExternalId = model.ExternalReferenceId.Trim(),
+                    EmailAlternativo = model.EmailAlternativo.Trim()
                 };
                 var result = await _userManager.CreateAsync(user, model.Password);
 
@@ -101,6 +118,7 @@ namespace AuthServer.Controllers
         }
 
         [HttpPost("change-password")]
+        [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto model)
         {
             try
@@ -160,7 +178,9 @@ namespace AuthServer.Controllers
                     var htmlBody = EmailTemplates.GetTwoFactorTemplate(user.UserName, mfaCode);
 
                     // Dispara o e-mail de forma assíncrona
-                    await _emailService.SendEmailAsync(user.Email, "Seu código de acesso RentaInvest", htmlBody);
+                    List<string> toEmails = [user.Email, user.EmailAlternativo];
+
+                    await _emailService.SendEmailAsync(toEmails, "Seu código de acesso RentaInvest", htmlBody);
 
                     // Retorna um BadRequest padronizado informando ao Frontend que o 2FA é necessário
                     return BadRequest(new OpenIddictResponse
@@ -253,7 +273,8 @@ namespace AuthServer.Controllers
                 var htmlBody = EmailTemplates.GetTwoFactorTemplate(user.UserName, mfaCode);
 
                 // Dispara o e-mail de forma assíncrona
-                await _emailService.SendEmailAsync(user.Email, "Seu código de acesso RentaInvest", htmlBody);
+                List<string> toEmails = [user.Email, user.EmailAlternativo];
+                await _emailService.SendEmailAsync(toEmails, "Seu código de acesso RentaInvest", htmlBody);
 
                 // Retornando o código no JSON temporariamente apenas para você testar no Postman/Swagger:
                 return Ok(new { success = true, message = "Código enviado com sucesso." });
