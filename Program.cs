@@ -3,13 +3,13 @@ using AuthServer.Infra;
 using AuthServer.Models;
 using AuthServer.Services;
 using AuthServer.Services.Interfaces;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,10 +22,7 @@ using Serilog.Events;
 using System;
 using System.IO;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +64,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
@@ -124,15 +122,15 @@ builder.Services.AddOpenIddict()
         options.AddSigningKey(signingKey); // Adicionando a chave de assinatura
 
 
-        options.AllowClientCredentialsFlow(); // Suporta autentica��o de clientes
+        options.AllowClientCredentialsFlow(); // Suporta autenticao de clientes
         options.AllowPasswordFlow(); // Suporta autentica por senha
         options.AllowCustomFlow("email_code");
 
         options.AddEphemeralSigningKey();
 
-        options.SetAccessTokenLifetime(TimeSpan.FromHours(5));
-        options.SetIdentityTokenLifetime(TimeSpan.FromHours(5));
-        options.SetRefreshTokenLifetime(TimeSpan.FromHours(5));
+        options.SetAccessTokenLifetime(TimeSpan.FromHours(48));
+        options.SetIdentityTokenLifetime(TimeSpan.FromHours(48));
+        options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
 
         options.AllowRefreshTokenFlow();
 
@@ -140,13 +138,36 @@ builder.Services.AddOpenIddict()
                        OpenIddictConstants.Permissions.Scopes.Profile,
                        OpenIddictConstants.Permissions.Scopes.Roles);
 
+        options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ApplyTokenResponseContext>(builder =>
+        builder.UseInlineHandler(context =>
+        {
+            var httpContext = context.Transaction.GetHttpRequest()?.HttpContext;
+
+            if (context == null)
+            {
+                return default;
+            }
+
+            // Verifica se a resposta foi gerada com sucesso e se contém o AccessToken
+            if (string.IsNullOrEmpty(context.Response.Error) && !string.IsNullOrEmpty(context.Response.AccessToken))
+            {
+                httpContext.Response.Cookies.Append("rentainvest_token", context.Response.AccessToken, new CookieOptions
+                {
+                    HttpOnly = true,   // Protege contra XSS (VueJS não lê)
+                    Secure = true,     // Apenas HTTPS
+                    SameSite = SameSiteMode.Lax, // Protege contra CSRF
+                    Expires = DateTimeOffset.UtcNow.AddHours(48) // Alinhado com as 48h do token
+                });
+            }
+            return default;
+        }));
 
     })
     .AddValidation(options =>
     {
         options.UseLocalServer();
         options.UseAspNetCore();
-        options.SetClientAssertionLifetime(TimeSpan.FromHours(5));
+        options.SetClientAssertionLifetime(TimeSpan.FromHours(48));
     });
 
 

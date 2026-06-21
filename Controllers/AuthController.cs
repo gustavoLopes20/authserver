@@ -132,7 +132,7 @@ namespace AuthServer.Controllers
         public async Task<IActionResult> Exchange()
         {
             var request = HttpContext.GetOpenIddictServerRequest() ??
-                throw new InvalidOperationException("O request do OpenID Connect não pôde ser recuperado.");
+                throw new InvalidOperationException("O request do OpenID Connect NAO pode ser recuperado");
 
             if (request.IsPasswordGrantType())
             {
@@ -194,8 +194,8 @@ namespace AuthServer.Controllers
                 identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, user.Id));
                 identity.AddClaim(new Claim(OpenIddictConstants.Claims.Name, user.UserName));
 
-                identity.SetAccessTokenLifetime(TimeSpan.FromHours(5));
-                principal.SetAccessTokenLifetime(TimeSpan.FromHours(5));
+                identity.SetAccessTokenLifetime(TimeSpan.FromHours(48));
+                principal.SetAccessTokenLifetime(TimeSpan.FromHours(48));
 
                 principal.SetDestinations(static claim => claim.Type switch
                 {
