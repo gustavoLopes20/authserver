@@ -240,29 +240,38 @@ namespace AuthServer.Controllers
                     });
                 }
 
-                // --- SEU BLOCO DE CONFIGURAÇÃO DE CLAIMS E TOKEN (Mantido idêntico) ---
+                // --- CONFIGURAÇÃO DE CLAIMS E TOKEN  ---
                 var roles = await _userManager.GetRolesAsync(user);
                 var principal = await _signInManager.CreateUserPrincipalAsync(user);
                 var identity = (ClaimsIdentity)principal.Identity;
 
-                identity.RemoveClaim(identity.FindFirst(OpenIddictConstants.Claims.Subject));
-                identity.RemoveClaim(identity.FindFirst(OpenIddictConstants.Claims.Name));
+                // Proteção contra NullReference: Remove apenas se a claim realmente existir
+                var subClaim = identity.FindFirst(OpenIddictConstants.Claims.Subject) ?? identity.FindFirst(ClaimTypes.NameIdentifier);
+                if (subClaim != null) identity.RemoveClaim(subClaim);
 
+                var nameClaim = identity.FindFirst(OpenIddictConstants.Claims.Name) ?? identity.FindFirst(ClaimTypes.Name);
+                if (nameClaim != null) identity.RemoveClaim(nameClaim);
+
+                // Adiciona os formatos padronizados do OpenID Connect
                 identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, user.Id));
                 identity.AddClaim(new Claim(OpenIddictConstants.Claims.Name, user.UserName));
 
                 identity.SetAccessTokenLifetime(TimeSpan.FromHours(48));
                 principal.SetAccessTokenLifetime(TimeSpan.FromHours(48));
 
-                // 1. Criar as propriedades de autenticação
+                // Propriedades adicionais devolvidas no corpo do JSON do Token
                 var properties = new AuthenticationProperties();
                 properties.SetParameter("user_id", user.Id);
                 properties.SetParameter("user_email", user.Email);
                 properties.SetParameter("user_roles", string.Join(",", roles));
 
+                // Unificação dos Destinos: Trata os formatos CURTOS (OpenIddict) e LONGOS (Microsoft) de uma vez só
                 principal.SetDestinations(static claim => claim.Type switch
                 {
-                    OpenIddictConstants.Claims.Name or OpenIddictConstants.Claims.Role
+                    OpenIddictConstants.Claims.Name or
+                    ClaimTypes.Name or
+                    OpenIddictConstants.Claims.Role or
+                    ClaimTypes.Role
                         => new[] { OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken },
 
                     _ => new[] { OpenIddictConstants.Destinations.AccessToken }
@@ -270,13 +279,12 @@ namespace AuthServer.Controllers
 
                 principal.SetScopes(new[]
                 {
-                    OpenIddictConstants.Scopes.OpenId,
-                    OpenIddictConstants.Scopes.Profile,
-                    OpenIddictConstants.Scopes.Email,
-                    OpenIddictConstants.Scopes.Roles,
-                });
+                  OpenIddictConstants.Scopes.OpenId,
+                  OpenIddictConstants.Scopes.Profile,
+                  OpenIddictConstants.Scopes.Email,
+                  OpenIddictConstants.Scopes.Roles,
+              });
 
-                // Substitua a linha fixa por esta:
                 if (!string.IsNullOrEmpty(request.ClientId))
                 {
                     principal.SetResources(request.ClientId);
