@@ -173,10 +173,12 @@ builder.Services.AddOpenIddict()
                 {
                     HttpOnly = true,
                     Secure = !isDev,
-                    SameSite = SameSiteMode.Lax,
+                    SameSite = SameSiteMode.None,
+                    Domain = ".rentainvestsistema.com.br",
                     Expires = DateTimeOffset.UtcNow.AddHours(48)
                 });
 
+              
                 // 4. Remove o token do corpo da resposta JSON
                 context.Response.AccessToken = null;
             }
