@@ -1,11 +1,6 @@
-﻿using AuthServer.Infra;
-using AuthServer.Models;
+﻿using AuthServer.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
-using OpenIddict.Core;
-using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace AuthServer.Config
@@ -108,45 +103,45 @@ namespace AuthServer.Config
 
 
 
-        public async Task Initialize()
-        {
-            string[] roleNames = ["Admin", "Consultor", "Client", "SelfInvest", "Api", "Developer"];
+        //public async Task Initialize()
+        //{
+        //    string[] roleNames = ["Admin", "Consultor", "Client", "SelfInvest", "Api", "Developer"];
 
-            // Criação de roles se não existirem
-            foreach (var roleName in roleNames)
-            {
-                if (!await _roleManager.RoleExistsAsync(roleName))
-                {
-                    await _roleManager.CreateAsync(new IdentityRole(roleName));
-                }
-            }
+        //    // Criação de roles se não existirem
+        //    foreach (var roleName in roleNames)
+        //    {
+        //        if (!await _roleManager.RoleExistsAsync(roleName))
+        //        {
+        //            await _roleManager.CreateAsync(new IdentityRole(roleName));
+        //        }
+        //    }
 
-            // Criar usuário Admin
-            await SeedAdminUserAsync("gustavol17@outlook.com", "u509%(lCl<l2!",  "Admin");
-            await SeedAdminUserAsync("luizpa30@gmail.com", "LV8@=u[sQ3$4", "Admin");
-            await SeedAdminUserAsync("selfinvest@rentainvest.com.br", "LV8@=u[sQ3$4", "SelfInvest");
-        }
+        //    // Criar usuário Admin
+        //    await SeedAdminUserAsync("gustavol17@outlook.com", "u509%(lCl<l2!",  "Admin");
+        //    await SeedAdminUserAsync("luizpa30@gmail.com", "LV8@=u[sQ3$4", "Admin");
+        //    await SeedAdminUserAsync("selfinvest@rentainvest.com.br", "LV8@=u[sQ3$4", "SelfInvest");
+        //}
 
-        private async Task SeedAdminUserAsync(string adminEmail, string pass, string role, string clienteRID = "")
-        {
-            var adminUser = await _userManager.FindByEmailAsync(adminEmail);
+        //private async Task SeedAdminUserAsync(string adminEmail, string pass, string role, string clienteRID = "")
+        //{
+        //    var adminUser = await _userManager.FindByEmailAsync(adminEmail);
 
-            if (adminUser == null)
-            {
-                var user = new ApplicationUser { UserName = adminEmail, Email = adminEmail, Role = role, ExternalId = clienteRID };
-                var result = await _userManager.CreateAsync(user, pass);
+        //    if (adminUser == null)
+        //    {
+        //        var user = new ApplicationUser { UserName = adminEmail, Email = adminEmail, Role = role, ExternalId = clienteRID };
+        //        var result = await _userManager.CreateAsync(user, pass);
 
          
-                if (result.Succeeded)
-                {
-                    await _userManager.AddToRoleAsync(user, role);
+        //        if (result.Succeeded)
+        //        {
+        //            await _userManager.AddToRoleAsync(user, role);
 
-                    // Adiciona uma claim customizada com um ID customizado
-                    var claim = new Claim("ClientRID", user.ExternalId);
-                    await _userManager.AddClaimAsync(user, claim);
-                }
-            }
-        }
+        //            // Adiciona uma claim customizada com um ID customizado
+        //            var claim = new Claim("ClientRID", user.ExternalId);
+        //            await _userManager.AddClaimAsync(user, claim);
+        //        }
+        //    }
+        //}
 
 
     }

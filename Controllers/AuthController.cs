@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using System;
@@ -31,31 +32,41 @@ namespace AuthServer.Controllers
 
         [HttpGet("list-usrs")]
         [Authorize]
-        public  List<ApplicationUser> GetUrs([FromQuery] string id)
+        public async Task<IActionResult> GetUrs([FromQuery] string clientId)
         {
             try
             {
-                var users = _userManager.Users.ToList();
+                // 1. Busca apenas o usuário que está fazendo a requisição direto no banco
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
 
-                var user = users.FirstOrDefault(a => a.Id == id);
-
-                string[] roleNames = ["Admin", "Consultor", "Client", "SelfInvest", "Api", "Developer"];
-
-                if (user != null)
+                // Validação de segurança caso o token venha corrompido sem ID
+                if (string.IsNullOrEmpty(userId))
                 {
-                    if (user.Role == "Admin")
-                    {
-                        roleNames = ["Api", "Developer"];
-
-                        return users.Where(a => a.Id != id && !roleNames.Contains(a.Role)).ToList();
-                    }
-                    return [];
+                    return Unauthorized(new { error = "Não foi possível extrair o ID do usuário do Token." });
                 }
-                return [];
 
-            }catch(Exception ex)
+
+                // Roles que o Admin NÃO deve listar (conforme a sua regra de negócio original)
+                string[] excludedRoles = ["Api", "Developer"];
+
+                // 2. Monta a Query base filtrando as Roles e ignorando o próprio Admin logado
+                var query = _userManager.Users
+                    .Where(a => a.Id != userId && !excludedRoles.Contains(a.Role));
+
+                // 3. NOVO FILTRO: Se um ClientId foi enviado na URL, filtra apenas quem tem acesso a ele
+                if (!string.IsNullOrEmpty(clientId))
+                {
+                    query = query.Where(u => u.AllowedApplications.Any(ua => ua.ClientId == clientId));
+                }
+
+                // 4. Executa a query final de forma assíncrona e otimizada no banco de dados
+                var filteredUsers = await query.ToListAsync();
+
+                return Ok(filteredUsers);
+            }
+            catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                return BadRequest(new { error = ex.Message });
             }
         }
 
@@ -78,18 +89,24 @@ namespace AuthServer.Controllers
         {
             try
             {
-                var adminUser = await _userManager.FindByEmailAsync(model.Email.Trim());
+                //var adminUser = await _userManager.FindByEmailAsync(model.Email.Trim());
 
-                if (adminUser != null)
-                    await _userManager.DeleteAsync(adminUser);
+                //if (adminUser != null)
+                //    await _userManager.DeleteAsync(adminUser);
                 
                 var user = new ApplicationUser 
-                { 
-                    UserName = model.Email.Trim(), 
+                {
+                    NomePessoa = model.UserName.Trim(), 
+                    UserName = model.Email.Trim(),
                     Email = model.Email.Trim(), 
                     Role = model.Role.Trim(), 
-                    ExternalId = model.ExternalReferenceId.Trim(),
-                    EmailAlternativo = model.EmailAlternativo.Trim()
+                    ExternalId = model.ExternalReferenceId?.Trim(),
+                    EmailAlternativo = model.EmailAlternativo?.Trim(),
+                    // Mapeia os ClientIds enviados para a nova tabela
+                    AllowedApplications = model.AllowedClientIds.Select(clientId => new UserApplication
+                    {
+                        ClientId = clientId
+                    }).ToList()
                 };
                 var result = await _userManager.CreateAsync(user, model.Password);
 
@@ -160,6 +177,25 @@ namespace AuthServer.Controllers
                 if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
                 {
                     return Forbid();
+                }
+
+                // ------------------------------------------------------------------
+                // NOVA VALIDAÇÃO: Controle de Acesso por Aplicação
+                // ------------------------------------------------------------------
+                // Busca a lista de ClientIds permitidos diretamente da tabela de relacionamento
+                var userAllowedApps = await _userManager.Users
+                    .Where(u => u.Id == user.Id)
+                    .SelectMany(u => u.AllowedApplications.Select(a => a.ClientId))
+                    .ToListAsync();
+
+                // Se o ClientId atual do request não estiver na lista do usuário, barra o login
+                if (!userAllowedApps.Contains(request.ClientId))
+                {
+                    return BadRequest(new OpenIddictResponse
+                    {
+                        Error = OpenIddictConstants.Errors.InvalidGrant,
+                        ErrorDescription = "Seu usuário não tem permissão para acessar esta aplicação específica."
+                    });
                 }
 
                 // Captura o parâmetro "code" enviado no corpo da requisição x-www-form-urlencoded
@@ -240,7 +276,11 @@ namespace AuthServer.Controllers
                     OpenIddictConstants.Scopes.Roles,
                 });
 
-                principal.SetResources("rentainvestApp-idd");
+                // Substitua a linha fixa por esta:
+                if (!string.IsNullOrEmpty(request.ClientId))
+                {
+                    principal.SetResources(request.ClientId);
+                }
 
                 return SignIn(principal, properties,OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
             }

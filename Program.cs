@@ -156,7 +156,20 @@ builder.Services.AddOpenIddict()
 
             if (string.IsNullOrEmpty(context.Response.Error) && !string.IsNullOrEmpty(context.Response.AccessToken))
             {
-                httpContext.Response.Cookies.Append("rentainvest_token", context.Response.AccessToken, new CookieOptions
+                // 1. Recupera o ClientId da requisição que gerou o token
+                var clientId = context.Request?.ClientId;
+
+                // 2. Define dinamicamente o nome do cookie
+                string cookieName = clientId switch
+                {
+                    "selfInvestApp-idd" => "selfinvest_token",
+                    "internationalRentainvestApp-idd" => "intl_rentainvest_token",
+                    "rentainvestApp-idd" => "rentainvest_token",
+                    _ => "app_token" // Fallback de segurança caso venha nulo ou desconhecido
+                };
+
+                // 3. Adiciona o cookie no response com o nome correto
+                httpContext.Response.Cookies.Append(cookieName, context.Response.AccessToken, new CookieOptions
                 {
                     HttpOnly = true,
                     Secure = !isDev,
@@ -164,10 +177,31 @@ builder.Services.AddOpenIddict()
                     Expires = DateTimeOffset.UtcNow.AddHours(48)
                 });
 
+                // 4. Remove o token do corpo da resposta JSON
                 context.Response.AccessToken = null;
             }
             return default;
         }));
+        //options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ApplyTokenResponseContext>(builder =>
+        //builder.UseInlineHandler(context =>
+        //{
+        //    var httpContext = context.Transaction.GetHttpRequest()?.HttpContext;
+        //    if (context == null || httpContext == null) return default;
+
+        //    if (string.IsNullOrEmpty(context.Response.Error) && !string.IsNullOrEmpty(context.Response.AccessToken))
+        //    {
+        //        httpContext.Response.Cookies.Append("rentainvest_token", context.Response.AccessToken, new CookieOptions
+        //        {
+        //            HttpOnly = true,
+        //            Secure = !isDev,
+        //            SameSite = SameSiteMode.Lax,
+        //            Expires = DateTimeOffset.UtcNow.AddHours(48)
+        //        });
+
+        //        context.Response.AccessToken = null;
+        //    }
+        //    return default;
+        //}));
     })
     .AddValidation(options =>
     {
@@ -310,7 +344,20 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     options.Authority = Configuration["Secrets:Authority"];
-    options.Audience = Configuration["Secrets:ValidAudience"];
+    //options.Audience = Configuration["Secrets:ValidAudience"];
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+       
+        //  CORREÇÃO: Aceitar qualquer uma das suas 4 aplicações cadastradas
+        ValidAudiences = new[]
+        {
+            "rentainvestApp-idd",
+            "internationalRentainvestApp-idd",
+            "selfInvestApp-idd",
+            "clientPainel_app"
+        }
+    };
 
     options.RequireHttpsMetadata = builder.Environment.IsProduction();
 });
@@ -358,7 +405,7 @@ using (var scope = app.Services.CreateScope())
     InicializeDb.Initialize(dbContext);
 
     await seeder.SeedOpenIddictAsync();
-    await seeder.Initialize();
+    //await seeder.Initialize();
 }
 
 // Configure the HTTP request pipeline.
