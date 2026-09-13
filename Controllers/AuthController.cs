@@ -6,9 +6,11 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using System;
@@ -24,11 +26,12 @@ namespace AuthServer.Controllers
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController(UserManager<ApplicationUser> userManager,
-     SignInManager<ApplicationUser> signInManager, IEmailService emailService) : ControllerBase
+     SignInManager<ApplicationUser> signInManager, IEmailService emailService, IWebHostEnvironment webHostEnvironment) : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager = userManager;
         private readonly SignInManager<ApplicationUser> _signInManager = signInManager;
         private readonly IEmailService _emailService = emailService;
+        private readonly IWebHostEnvironment _webHostEnvironment = webHostEnvironment;
 
         [HttpGet("list-usrs")]
         [Authorize]
@@ -89,17 +92,24 @@ namespace AuthServer.Controllers
         {
             try
             {
-                //var adminUser = await _userManager.FindByEmailAsync(model.Email.Trim());
+                var userExists = await _userManager.FindByEmailAsync(model.Email.Trim());
 
-                //if (adminUser != null)
-                //    await _userManager.DeleteAsync(adminUser);
-                
-                var user = new ApplicationUser 
+                if (userExists != null)
                 {
-                    NomePessoa = model.UserName.Trim(), 
+                  var resultDelete = await _userManager.DeleteAsync(userExists); // Atualiza o usuário existente, se necessário
+
+                  if (!resultDelete.Succeeded)
+                  {
+                      return BadRequest(new RegisterResponseDto { Errors = "Erro ao atualizar o usuário existente.", Success = false });
+                  }
+                }
+
+                var user = new ApplicationUser
+                {
+                    NomePessoa = model.UserName.Trim(),
                     UserName = model.Email.Trim(),
-                    Email = model.Email.Trim(), 
-                    Role = model.Role.Trim(), 
+                    Email = model.Email.Trim(),
+                    Role = model.Role.Trim(),
                     ExternalId = model.ExternalReferenceId?.Trim(),
                     EmailAlternativo = model.EmailAlternativo?.Trim(),
                     // Mapeia os ClientIds enviados para a nova tabela
@@ -179,24 +189,22 @@ namespace AuthServer.Controllers
                     return Forbid();
                 }
 
-                // ------------------------------------------------------------------
-                // NOVA VALIDAÇÃO: Controle de Acesso por Aplicação
-                // ------------------------------------------------------------------
+            
                 // Busca a lista de ClientIds permitidos diretamente da tabela de relacionamento
-                var userAllowedApps = await _userManager.Users
-                    .Where(u => u.Id == user.Id)
-                    .SelectMany(u => u.AllowedApplications.Select(a => a.ClientId))
-                    .ToListAsync();
+                //var userAllowedApps = await _userManager.Users
+                //    .Where(u => u.Id == user.Id)
+                //    .SelectMany(u => u.AllowedApplications.Select(a => a.ClientId))
+                //    .ToListAsync();
 
-                // Se o ClientId atual do request não estiver na lista do usuário, barra o login
-                if (!userAllowedApps.Contains(request.ClientId))
-                {
-                    return BadRequest(new OpenIddictResponse
-                    {
-                        Error = OpenIddictConstants.Errors.InvalidGrant,
-                        ErrorDescription = "Seu usuário não tem permissão para acessar esta aplicação específica."
-                    });
-                }
+                //// Se o ClientId atual do request não estiver na lista do usuário, barra o login
+                //if (!userAllowedApps.Contains(request.ClientId))
+                //{
+                //    return BadRequest(new OpenIddictResponse
+                //    {
+                //        Error = OpenIddictConstants.Errors.InvalidGrant,
+                //        ErrorDescription = "Seu usuário não tem permissão para acessar esta aplicação específica."
+                //    });
+                //}
 
                 // Captura o parâmetro "code" enviado no corpo da requisição x-www-form-urlencoded
                 var code = request.GetParameter("code")?.Value?.ToString();
@@ -210,20 +218,27 @@ namespace AuthServer.Controllers
                     //var mfaCode = await _userManager.GenerateUserTokenAsync(user, "Default", "2FAEmailAuth");
                     var mfaCode = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
 
-                    // Renderiza o template HTML criado
-                    var htmlBody = EmailTemplates.GetTwoFactorTemplate(user.UserName, mfaCode);
-
-                    // Dispara o e-mail de forma assíncrona
-                    List<string> toEmails = [user.Email, user.EmailAlternativo];
-
-                    await _emailService.SendEmailAsync(toEmails, "Seu código de acesso RentaInvest", htmlBody);
-
-                    // Retorna um BadRequest padronizado informando ao Frontend que o 2FA é necessário
-                    return BadRequest(new OpenIddictResponse
+                    if (_webHostEnvironment.IsProduction())
                     {
-                        Error = "mfa_required",
-                        ErrorDescription = "Autenticação de dois fatores obrigatória. O código foi enviado para o seu e-mail.",
-                    });
+                        // Renderiza o template HTML criado
+                        var htmlBody = EmailTemplates.GetTwoFactorTemplate(user.UserName, mfaCode);
+
+                        // Dispara o e-mail de forma assíncrona
+                        List<string> toEmails = [user.Email, user.EmailAlternativo];
+
+                        await _emailService.SendEmailAsync(toEmails, "Seu código de acesso RentaInvest", htmlBody);
+
+                        // Retorna um BadRequest padronizado informando ao Frontend que o 2FA é necessário
+                        return BadRequest(new OpenIddictResponse
+                        {
+                            Error = "mfa_required",
+                            ErrorDescription = "Autenticação de dois fatores obrigatória. O código foi enviado para o seu e-mail.",
+                        });
+                    }
+                    else
+                    {
+                        code = mfaCode; 
+                    }
                 }
 
                 // ------------------------------------------------------------------

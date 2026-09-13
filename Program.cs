@@ -169,14 +169,27 @@ builder.Services.AddOpenIddict()
                 };
 
                 // 3. Adiciona o cookie no response com o nome correto
-                httpContext.Response.Cookies.Append(cookieName, context.Response.AccessToken, new CookieOptions
+                if (isDev) 
                 {
-                    HttpOnly = true,
-                    Secure = !isDev,
-                    SameSite = SameSiteMode.None,
-                    Domain = ".rentainvestsistema.com.br",
-                    Expires = DateTimeOffset.UtcNow.AddHours(48)
-                });
+                    httpContext.Response.Cookies.Append(cookieName, context.Response.AccessToken, new CookieOptions
+                    {
+                        HttpOnly = false,
+                        Secure = false,
+                        SameSite = SameSiteMode.Lax,
+                        Expires = DateTimeOffset.UtcNow.AddHours(1)
+                    });
+                }
+                else
+                {
+                    httpContext.Response.Cookies.Append(cookieName, context.Response.AccessToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None,
+                        Domain = ".rentainvestsistema.com.br",
+                        Expires = DateTimeOffset.UtcNow.AddHours(48)
+                    });
+                }
 
               
                 // 4. Remove o token do corpo da resposta JSON
@@ -407,7 +420,7 @@ using (var scope = app.Services.CreateScope())
     InicializeDb.Initialize(dbContext);
 
     await seeder.SeedOpenIddictAsync();
-    //await seeder.Initialize();
+    await seeder.InitializeRolesAsync();
 }
 
 // Configure the HTTP request pipeline.

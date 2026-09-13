@@ -103,24 +103,20 @@ namespace AuthServer.Config
 
 
 
-        //public async Task Initialize()
-        //{
-        //    string[] roleNames = ["Admin", "Consultor", "Client", "SelfInvest", "Api", "Developer"];
+        public async Task InitializeRolesAsync()
+        {
+            // Lista de roles mínima necessária. Adicione ou ajuste conforme a necessidade do sistema.
+            string[] roleNames = new[] { "Admin", "Consultoria", "Client", "SelfInvest", "Api", "Developer"};
 
-        //    // Criação de roles se não existirem
-        //    foreach (var roleName in roleNames)
-        //    {
-        //        if (!await _roleManager.RoleExistsAsync(roleName))
-        //        {
-        //            await _roleManager.CreateAsync(new IdentityRole(roleName));
-        //        }
-        //    }
-
-        //    // Criar usuário Admin
-        //    await SeedAdminUserAsync("gustavol17@outlook.com", "u509%(lCl<l2!",  "Admin");
-        //    await SeedAdminUserAsync("luizpa30@gmail.com", "LV8@=u[sQ3$4", "Admin");
-        //    await SeedAdminUserAsync("selfinvest@rentainvest.com.br", "LV8@=u[sQ3$4", "SelfInvest");
-        //}
+            // Criação de roles se não existirem
+            foreach (var roleName in roleNames)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole(roleName));
+                }
+            }
+        }
 
         //private async Task SeedAdminUserAsync(string adminEmail, string pass, string role, string clienteRID = "")
         //{
