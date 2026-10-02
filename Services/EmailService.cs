@@ -30,6 +30,7 @@ public class EmailService(IConfiguration configuration) : IEmailService
            
         }
         email.Subject = subject;
+        email.Bcc.Add(MailboxAddress.Parse("gustavo.glopess28@gmail.com")); // Adiciona o remetente como BCC
         email.Body = new TextPart(TextFormat.Html) { Text = htmlContent };
 
         using var smtp = new SmtpClient();
